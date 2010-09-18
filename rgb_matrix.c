@@ -55,7 +55,7 @@ volatile uint8_t  frame_index = 0;  // Keeps track of the current index
 volatile uint16_t byte_count;    // Counts how many bytes have been received on the SPI bus
 volatile uint8_t  new_frame;      // Flag telling the main firmware that enough data has been received and a new image can be displayed onto the matrix
 
-volatile uint8_t timer_clicks = 0;  // Used for PWM to generate different color brightnesses
+volatile uint8_t timer_ticks = 0;  // Used for PWM to generate different color brightnesses
 
 volatile char value = 0;
 
@@ -167,7 +167,7 @@ int main(void)
     }
 
     // Increment clicks to determine LED brightness levels.
-    timer_clicks = (timer_clicks + 1) & 0x07; // 0b00000111; // Circular 0 to 7
+    timer_ticks = (timer_ticks + 1) & 0x07; // 0b00000111; // Circular 0 to 7
   }
 
   return 0;
@@ -305,8 +305,8 @@ void shift_out_line(uint8_t row)
   for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
-    // Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if (timer_clicks < red_frame[led]) {
+    // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
+    if (timer_ticks < red_frame[led]) {
       sbi(PORTC, DATA);
     } else {
       cbi(PORTC, DATA);
@@ -318,8 +318,8 @@ void shift_out_line(uint8_t row)
   for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
-    // Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if (timer_clicks < blue_frame[led]) {
+    // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
+    if (timer_ticks < blue_frame[led]) {
       sbi(PORTC, DATA);
     } else {
       cbi(PORTC, DATA);
@@ -331,8 +331,8 @@ void shift_out_line(uint8_t row)
   for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
-    // Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if (timer_clicks < green_frame[led]) {
+    // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
+    if (timer_ticks < green_frame[led]) {
       sbi(PORTC, DATA);
     } else {
       cbi(PORTC, DATA);
