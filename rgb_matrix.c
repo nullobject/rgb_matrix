@@ -6,7 +6,7 @@
     ATmega168
 
     Uses RGB matrix backpack v2 (v24.brd)
-  Takes in 64 bytes of data
+  Takes in NUM_LEDS bytes of data
 */
 
 #include <inttypes.h>
@@ -38,18 +38,20 @@
 /*********************************************************
             General Definitions
 *********************************************************/
-#define NUM_BOARDS 1  // Defines how many RGB matrices are connected in the sysem. Change this value and recompile if you are using more than one matrix
+#define NUM_BOARDS 1 // Defines how many RGB matrices are connected in the sysem. Change this value and recompile if you are using more than one matrix
 
-#define NUM_LEDS 64  // Defines how many LEDs are on each matix (Shouldn't be changed)
+#define NUM_ROWS 8
+#define NUM_COLS 8
+#define NUM_LEDS 64 // Defines how many LEDs are on each matix (Shouldn't be changed)
 
 /*********************************************************
             Global Variables
 *********************************************************/
-volatile uint8_t red_frame[64];   // Each byte in the buffer represents the brightness of the corresponding red LED on the matrix
-volatile uint8_t green_frame[64]; // Each byte in the buffer represents the brightness of the corresponding green LED on the matrix
-volatile uint8_t blue_frame[64];  // Each byte in the buffer represents the brightness of the corresponding blue LED on the matrix
+volatile uint8_t red_frame[NUM_LEDS];   // Each byte in the buffer represents the brightness of the corresponding red LED on the matrix
+volatile uint8_t green_frame[NUM_LEDS]; // Each byte in the buffer represents the brightness of the corresponding green LED on the matrix
+volatile uint8_t blue_frame[NUM_LEDS];  // Each byte in the buffer represents the brightness of the corresponding blue LED on the matrix
 
-volatile uint8_t buffer[64];    // Temporary Buffer that holds the incoming data from the SPI bus. This data is parsed into the Red,Green and Blue Frame Buffers
+volatile uint8_t buffer[NUM_LEDS];    // Temporary Buffer that holds the incoming data from the SPI bus. This data is parsed into the red, green and blue frame buffers.
 
 volatile uint8_t  frame_index = 0;  // Keeps track of the current index
 volatile uint16_t byte_count;    // Counts how many bytes have been received on the SPI bus
@@ -124,18 +126,19 @@ Return:    None
 ISR(SIG_SPI)
 {
   cli();  // Halt Interrupts
-  value=SPDR;  // Get the data from the SPI bus and put it into the temporary frame buffer
+  value = SPDR;  // Get the data from the SPI bus and put it into the temporary frame buffer
 
   buffer[frame_index] = value;
 
-  frame_index = ((frame_index + 1) & 0x3F);  // Frame index counts from 0-63 then wraps back to 0
+  frame_index = ((frame_index + 1) & 0x3f);  // Frame index counts from 0-63 then wraps back to 0
   SPDR = buffer[frame_index];  // Pass the data along to the next matrix in line.
 
   byte_count++;  // Keep track o f how many bytes we receive
+
   // If we've received enough data for all of the boards currently connected, tell the main firmware we can post a new frame!
-  if (byte_count == NUM_LEDS*NUM_BOARDS){
-    new_frame = 1;  // Post a new frame when we receive enough bytes for all of the LEDS in the 'system'
-    byte_count=0;  // Reset the byte count
+  if (byte_count == NUM_LEDS * NUM_BOARDS){
+    new_frame  = 1;  // Post a new frame when we receive enough bytes for all of the LEDS in the 'system'
+    byte_count = 0;  // Reset the byte count
   }
 
   sei();
@@ -146,7 +149,7 @@ ISR(SIG_SPI)
 *********************************************************/
 int main(void)
 {
-  ioinit ();
+  ioinit();
 
   // Make sure all the pixels are working
   splash_screen();
@@ -167,7 +170,7 @@ int main(void)
     }
 
     // Increment clicks to determine LED brightness levels.
-    timer_ticks = (timer_ticks + 1) & 0x07; // 0b00000111; // Circular 0 to 7
+    timer_ticks = (timer_ticks + 1) & 0x07; // Circular 0 to 7
   }
 
   return 0;
@@ -214,7 +217,7 @@ void splash_screen(void)
   cli();
 
   // Fill red
-  for (i = 0; i < 64; i++) {
+  for (i = 0; i < NUM_LEDS; i++) {
     red_frame[i]   = 7;
     green_frame[i] = 0;
     blue_frame[i]  = 0;
@@ -225,7 +228,7 @@ void splash_screen(void)
   }
 
   // Fill green
-  for (i = 0; i < 64; i++) {
+  for (i = 0; i < NUM_LEDS; i++) {
     red_frame[i]   = 0;
     green_frame[i] = 7;
     blue_frame[i]  = 0;
@@ -236,7 +239,7 @@ void splash_screen(void)
   }
 
   // Fill blue
-  for (i = 0; i < 64; i++) {
+  for (i = 0; i < NUM_LEDS; i++) {
     red_frame[i]   = 0;
     green_frame[i] = 0;
     blue_frame[i]  = 7;
@@ -247,7 +250,7 @@ void splash_screen(void)
   }
 
   // Erase frame data
-  for (i = 0; i < 64; i++) {
+  for (i = 0; i < NUM_LEDS; i++) {
     red_frame[i]   = 0;
     green_frame[i] = 0;
     blue_frame[i]  = 0;
@@ -267,12 +270,12 @@ void parse_frame(void)
 {
   uint8_t color_value;
 
-  for (int led = 0; led < 64; led++) {
+  for (uint8_t led = 0; led < NUM_LEDS; led++) {
     color_value = buffer[led];
 
-    red_frame[led]   = (color_value & 0xE0) >> 5;  //(temp & 0b11100000) >> 5; Highes 3 bits represent the Red value for the current LED
-    green_frame[led] = (color_value & 0x1C) >> 2;   //(temp & 0b00011100) >> 2; Next 3 bits represent the Green value for the current LED
-    blue_frame[led]  = (color_value & 0x03);     //(temp & 0b00000011); Final 2 bits represent the Blue value for the current LED
+    red_frame[led]   = (color_value & 0xe0) >> 5; //(temp & 0b11100000) >> 5; Highes 3 bits represent the Red value for the current LED
+    green_frame[led] = (color_value & 0x1c) >> 2; //(temp & 0b00011100) >> 2; Next 3 bits represent the Green value for the current LED
+    blue_frame[led]  = (color_value & 0x03);      //(temp & 0b00000011); Final 2 bits represent the Blue value for the current LED
   }
 
   new_frame = 0; // Reset new frame flag
@@ -286,7 +289,7 @@ Return:    None
 */
 void post_frames(void)
 {
-  for (uint8_t row = 0; row < 8; row++) {
+  for (uint8_t row = 0; row < NUM_ROWS; row++) {
     shift_out_line(row);  // Send all 8 rows of colors to the Matrix
   }
 }
@@ -301,8 +304,10 @@ void shift_out_line(uint8_t row)
 {
   cbi(PORTC, LATCH);  // Disable the shift registers
 
+  uint8_t col = row * NUM_COLS;
+
   // Send Red Values
-  for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
+  for (uint8_t led = col; led < col + NUM_COLS; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
     // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
@@ -315,7 +320,7 @@ void shift_out_line(uint8_t row)
     sbi(PORTC, CLK);  // Raise the shift register clock to lock in the data
   }
   // Send Blue Values
-  for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
+  for (uint8_t led = col; led < col + NUM_COLS; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
     // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
@@ -328,7 +333,7 @@ void shift_out_line(uint8_t row)
     sbi(PORTC, CLK);  // Raise the shift register clock to lock in the data
   }
   // Send Green Values
-  for (uint8_t led = row * 8; led < (row * 8) + 8; led++) {
+  for (uint8_t led = col; led < col + NUM_COLS; led++) {
     cbi(PORTC, CLK);  // Lower the shift register clock so we can configure the data
 
     // Compare the current color value to timer_ticks to Pulse Width Modulate the LED to create the designated brightness
@@ -344,7 +349,7 @@ void shift_out_line(uint8_t row)
   sbi(PORTC, EN);    // Disable the Shift Register Outputs
   sbi(PORTC, LATCH);  // Put the new data onto the outputs of the shift register
 
-  PORTD = (1 << (7 - row)); // Sink current through row (Turns colors 'ON' for the given row. Keep in mind that we can only display to 1 row at a time.)
+  PORTD = (1 << ((NUM_ROWS - 1) - row)); // Sink current through row (Turns colors 'ON' for the given row. Keep in mind that we can only display to 1 row at a time.)
 
   cbi(PORTC, EN);    // Enable the Shift Register Outputs
 }
