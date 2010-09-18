@@ -7,7 +7,6 @@
 
     Uses RGB matrix backpack v2 (v24.brd)
   Takes in 64 bytes of data
-
 */
 
 #include <inttypes.h>
@@ -39,9 +38,8 @@
 /*********************************************************
             General Definitions
 *********************************************************/
-//#define NUM_BOARDS   1  //Defines how many RGB matrices are connected in the sysem. Change this value and recompile if you are using more than one matrix
+#define NUM_BOARDS   1  //Defines how many RGB matrices are connected in the sysem. Change this value and recompile if you are using more than one matrix
 #define RUN_COUNT_ADDRESS  0
-#define NUM_BOARDS_ADDRESS  1  //EEPROM location of "NUM_BOARDS" parameters
 #define NUM_LEDS  64  //Defines how many LEDs are on each matix (Shouldn't be changed)
 
 /*********************************************************
@@ -59,8 +57,7 @@ volatile uint8_t new_frame;      //Flag telling the main firmware that enough da
 
 volatile uint8_t timer_clicks=0;  //Used for PWM to generate different color brightnesses
 
-volatile uint8_t NUM_BOARDS=0, RUN_COUNT=0;
-volatile char command_mode=0;
+volatile uint8_t RUN_COUNT=0;
 volatile char value=0;
 
 const char test_frame[]= {      //Used to test the LED. Only accessed in the splash_screen() function;
@@ -156,28 +153,18 @@ ISR (SIG_SPI)
 {
   cli();  //Halt Interrupts
   value=SPDR;  //Get the data from the SPI bus and put it into the temporary frame buffer
-  if(!command_mode && value != '%'){
-    buffer[frame_index] = value;
 
-    frame_index = ((frame_index + 1) & 0x3F) ;  //Frame index counts from 0-63 then wraps back to 0
-    SPDR = buffer[frame_index];  //Pass the data along to the next matrix in line.
+  buffer[frame_index] = value;
 
-    byte_count++;  //Keep track o f how many bytes we receive
-    //If we've received enough data for all of the boards currently connected, tell the main firmware we can post a new frame!
-    if(byte_count == NUM_LEDS*NUM_BOARDS){
-      new_frame = 1;  //Post a new frame when we receive enough bytes for all of the LEDS in the 'system'
-      byte_count=0;  //Reset the byte count
-    }
+  frame_index = ((frame_index + 1) & 0x3F);  //Frame index counts from 0-63 then wraps back to 0
+  SPDR = buffer[frame_index];  //Pass the data along to the next matrix in line.
+
+  byte_count++;  //Keep track o f how many bytes we receive
+  //If we've received enough data for all of the boards currently connected, tell the main firmware we can post a new frame!
+  if(byte_count == NUM_LEDS*NUM_BOARDS){
+    new_frame = 1;  //Post a new frame when we receive enough bytes for all of the LEDS in the 'system'
+    byte_count=0;  //Reset the byte count
   }
-  if(command_mode){
-    if(value > 0 && value < 9){
-      NUM_BOARDS=value;
-      write_to_EEPROM(NUM_BOARDS_ADDRESS, NUM_BOARDS);
-    }
-    command_mode=0;
-  }
-  if(value == '%')command_mode=1;
-
 
   sei();
 }
@@ -249,13 +236,11 @@ void ioinit (void)
   //Setup the SPI Hardware
   SPCR = (1<<SPE) | (1<<SPIE); //Enable SPI, Enable SPI Interrupts
 
-  //Load the NUM_BOARDS parameter from EEPROM
+  //Load the RUN_COUNT parameter from EEPROM
   RUN_COUNT = read_from_EEPROM(RUN_COUNT_ADDRESS);
   if(RUN_COUNT == 0xFF){
     RUN_COUNT = 1;
     write_to_EEPROM(RUN_COUNT_ADDRESS, RUN_COUNT);
-    NUM_BOARDS=1;
-    write_to_EEPROM(NUM_BOARDS_ADDRESS, NUM_BOARDS);
   }
   else{
     RUN_COUNT = read_from_EEPROM(RUN_COUNT_ADDRESS);
@@ -263,10 +248,7 @@ void ioinit (void)
       RUN_COUNT+=1;
       write_to_EEPROM(RUN_COUNT_ADDRESS, RUN_COUNT);
     }
-    NUM_BOARDS=read_from_EEPROM(NUM_BOARDS_ADDRESS);
-    if(NUM_BOARDS > 8)NUM_BOARDS=1;
   }
-
 }
 
 /*
@@ -331,9 +313,9 @@ void splash_screen(void)
   //Erase frame data
   for(i = 0 ; i < 64 ; i++)
   {
-    red_frame[i] = 0;
+    red_frame[i]   = 0;
     green_frame[i] = 0;
-    blue_frame[i] = 0;
+    blue_frame[i]  = 0;
   }
   sei();
   PORTD = 0; //Turn off display
