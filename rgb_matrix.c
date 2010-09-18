@@ -105,10 +105,10 @@ void post_frames(void);
 /*
 Usage:    shift_out_line(1);
 Purpose:  Sends a single row of colors to the RGB matrix.
-Parameters:  input row_num - Designates which row will be sent to the matrix
+Parameters:  input row - Designates which row will be sent to the matrix
 Return:    None
 */
-void shift_out_line(volatile uint8_t row_num);
+void shift_out_line(volatile uint8_t row);
 /*
 Usage:    delay_us(250);
 Purpose:  Delays the firmware for ~1us
@@ -331,13 +331,14 @@ void parse_frame(void)
 {
     uint8_t color_value;
 
-    for(int LED = 0 ; LED < 64 ; LED++)
+    for(int led = 0 ; led < 64 ; led++)
     {
-        color_value = buffer[63-LED];
-        red_frame[LED] = (color_value & 0xE0) >> 5;  //(temp & 0b11100000) >> 5; Highes 3 bits represent the Red value for the current LED
-        green_frame[LED] = (color_value & 0x1C) >> 2;   //(temp & 0b00011100) >> 2; Next 3 bits represent the Green value for the current LED
-        blue_frame[LED] = (color_value & 0x03);     //(temp & 0b00000011); Final 2 bits represent the Blue value for the current LED
+        color_value = buffer[led];
+        red_frame[led]   = (color_value & 0xE0) >> 5;  //(temp & 0b11100000) >> 5; Highes 3 bits represent the Red value for the current LED
+        green_frame[led] = (color_value & 0x1C) >> 2;   //(temp & 0b00011100) >> 2; Next 3 bits represent the Green value for the current LED
+        blue_frame[led]  = (color_value & 0x03);     //(temp & 0b00000011); Final 2 bits represent the Blue value for the current LED
     }
+
     new_frame = 0; //Reset new frame flag
 }
 
@@ -355,20 +356,20 @@ void post_frames(void)
 /*
 Usage:    shift_out_line(1);
 Purpose:  Sends a single row of colors to the RGB matrix.
-Parameters:  input row_num - Designates which row will be sent to the matrix
+Parameters:  input row - Designates which row will be sent to the matrix
 Return:    None
 */
-void shift_out_line(volatile uint8_t row_num)
+void shift_out_line(volatile uint8_t row)
 {
   cbi(PORTC, LATCH);  //Disable the shift registers
 
   //Send Red Values
-  for(uint8_t LED = row_num*8 ; LED < (row_num*8)+8 ; LED++) //Step through bits
+  for(uint8_t led = row*8 ; led < (row*8)+8 ; led++) //Step through bits
   {
     cbi(PORTC, CLK);  //Lower the shift register clock so we can configure the data
 
     //Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if(timer_clicks < red_frame[LED])
+    if(timer_clicks < red_frame[led])
       sbi(PORTC, DATA);
     else
       cbi(PORTC, DATA);
@@ -376,12 +377,12 @@ void shift_out_line(volatile uint8_t row_num)
     sbi(PORTC, CLK);  //Raise the shift register clock to lock in the data
   }
   //Send Blue Values
-  for(uint8_t LED = row_num*8 ; LED < (row_num*8)+8 ; LED++) //Step through bits
+  for(uint8_t led = row*8 ; led < (row*8)+8 ; led++) //Step through bits
   {
     cbi(PORTC, CLK);  //Lower the shift register clock so we can configure the data
 
     //Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if(timer_clicks < blue_frame[LED])
+    if(timer_clicks < blue_frame[led])
       sbi(PORTC, DATA);
     else
       cbi(PORTC, DATA);
@@ -389,12 +390,12 @@ void shift_out_line(volatile uint8_t row_num)
     sbi(PORTC, CLK);  //Raise the shift register clock to lock in the data
   }
   //Send Green Values
-  for(uint8_t i = row_num*8 ; i < (row_num*8)+8 ; i++) //Step through bits
+  for(uint8_t led = row*8 ; led < (row*8)+8 ; led++) //Step through bits
   {
     cbi(PORTC, CLK);  //Lower the shift register clock so we can configure the data
 
     //Compare the current color value to timer_clicks to Pulse Width Modulate the LED to create the designated brightness
-    if(timer_clicks < green_frame[i])
+    if(timer_clicks < green_frame[led])
       sbi(PORTC, DATA);
     else
       cbi(PORTC, DATA);
@@ -405,7 +406,7 @@ void shift_out_line(volatile uint8_t row_num)
   sbi(PORTC, EN);    //Disable the Shift Register Outputs
   sbi(PORTC, LATCH);  //Put the new data onto the outputs of the shift register
 
-  PORTD = (1<<row_num); //Sink current through row (Turns colors 'ON' for the given row. Keep in mind that we can only display to 1 row at a time.)
+  PORTD = (1<<(7 - row)); //Sink current through row (Turns colors 'ON' for the given row. Keep in mind that we can only display to 1 row at a time.)
 
   cbi(PORTC, EN);    //Enable the Shift Register Outputs
 }
